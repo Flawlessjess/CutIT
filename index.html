@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flawlessjess-Cabinetry</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,Helvetica,sans-serif;background:#1e1e1e;color:white;height:100vh;overflow:hidden}
+header{height:60px;background:#252526;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;padding:15px}
+header h1{font-size:22px;color:#ff6b9d}
+.header-btns{display:flex;gap:8px}
+.header-btns button{width:auto;padding:8px 14px;margin:0;font-size:13px}
+.main{display:flex;height:calc(100vh - 60px)}
+aside{width:340px;background:#2d2d30;padding:20px;overflow-y:auto;border-right:1px solid #333}
+aside h2{font-size:16px;margin-bottom:12px;color:#ff6b9d}
+label{display:block;margin-top:10px;margin-bottom:3px;font-size:12px;color:#ccc}
+input{width:100%;padding:7px 8px;background:#1e1e1e;border:1px solid #444;color:white;border-radius:4px;font-size:13px}
+select{width:100%;padding:7px 8px;background:#1e1e1e;border:1px solid #444;color:white;border-radius:4px;font-size:13px}
+button{width:100%;padding:8px;margin-top:8px;background:#d6336c;border:none;border-radius:4px;color:white;cursor:pointer;font-weight:bold;font-size:13px}
+button:hover{background:#e64980}
+.btn-danger{background:#c42b1c}
+.btn-danger:hover{background:#e03a2a}
+.btn-success{background:#1a8c4a}
+.btn-success:hover{background:#24b35e}
+.btn-outline{background:transparent;border:1px solid #555;color:#ddd}
+.btn-outline:hover{background:#3a3a3a}
+.form-row{display:flex;gap:6px}
+.form-row input{flex:1}
+.form-row button{flex:0 0 auto;width:auto;padding:7px 14px;margin:0}
+.workspace{flex:1;display:flex;flex-direction:column;padding:15px;gap:15px}
+.viewer{flex:1;background:#2d2d30;border:1px solid #444;border-radius:6px;padding:10px;display:flex;flex-direction:column}
+.viewer h2{margin-bottom:10px;color:#ff6b9d;font-size:15px}
+canvas{flex:1;background:white;border:1px solid black}
+#cabinetList{margin-top:8px;max-height:200px;overflow-y:auto}
+.cabinetItem{background:#3b3b40;padding:8px 10px;border-radius:4px;margin-bottom:6px;font-size:12px;position:relative}
+.cabinetItem .del-btn{position:absolute;top:4px;right:6px;background:none;border:none;color:#f55;cursor:pointer;font-size:14px;width:auto;padding:0;margin:0;line-height:1}
+.cabinetItem .del-btn:hover{color:#f88}
+.materialItem{background:#3b3b40;padding:10px;border-radius:4px;margin-bottom:10px}
+hr{margin-top:16px;margin-bottom:16px;border:none;border-top:1px solid #444}
+.section{padding:12px;background:#252526;border-radius:6px;margin-bottom:12px}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#1e1e1e}
+::-webkit-scrollbar-thumb{background:#555;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#777}
+</style>
+</head>
+<body>
+<header>
+<h1>Flawlessjess-Cabinetry</h1>
+<div class="header-btns">
+<button id="undoBtn" class="btn-outline" style="color:#f5a623;border-color:#f5a623">Undo</button>
+<button id="exportBtn" class="btn-outline" style="color:#ff6b9d;border-color:#ff6b9d">Export CSV</button>
+<button id="saveBtn">Save</button>
+<button id="loadBtn">Load</button>
+<input type="file" id="loadFile" hidden>
+</div>
+</header>
+<div class="main">
+<aside>
+<div class="section">
+<h2>Sheet Size</h2>
+<label>Sheet Width</label>
+<input id="sheetW" type="number" value="2400">
+<label>Sheet Height</label>
+<input id="sheetH" type="number" value="1200">
+</div>
+<div class="section">
+<h2>Cabinet Wizard</h2>
+<label>Cabinet Type</label>
+<select id="cabinetType">
+<option>Base Cabinet</option>
+<option>Wall Cabinet</option>
+<option>Pantry</option>
+<option>Vanity</option>
+<option>Tall Cabinet</option>
+</select>
+<label>Width</label>
+<input id="width" type="number" value="900">
+<label>Height</label>
+<input id="height" type="number" value="720">
+<label>Depth</label>
+<input id="depth" type="number" value="580">
+<label>Shelves</label>
+<input id="shelves" type="number" value="1">
+<label>Doors</label>
+<input id="doors" type="number" value="2">
+<label>Drawers</label>
+<input id="drawers" type="number" value="0">
+<button id="addCabinet">Add Cabinet</button>
+</div>
+<div class="section">
+<h2>Custom Cut</h2>
+<label>Part Name</label>
+<input id="customName" type="text" value="Custom">
+<div class="form-row" style="margin-top:10px">
+<div style="flex:1">
+<label>Width</label>
+<input id="customW" type="number" value="500">
+</div>
+<div style="flex:1">
+<label>Length</label>
+<input id="customH" type="number" value="300">
+</div>
+<div style="flex:0 0 60px">
+<label>Qty</label>
+<input id="customQty" type="number" value="1" min="1">
+</div>
+</div>
+<button id="addCustomBtn" class="btn-success">Add Custom Cut</button>
+</div>
+<div class="section">
+<h2>Project Cabinets</h2>
+<div id="cabinetList"></div>
+</div>
+<div class="section">
+<h2>Materials</h2>
+<div id="materialSummary">Sheets: 0</div>
+</div>
+</aside>
+<section class="workspace">
+<div class="viewer">
+<h2>Cut Sheets</h2>
+<canvas id="sheetCanvas" width="1200" height="900"></canvas>
+</div>
+</section>
+</div>
+
+<script>
+// ===== cabinets.js =====
+class Cabinet {
+constructor(options={}){
+this.type=options.type||"Base Cabinet";
+this.width=options.width||900;
+this.height=options.height||720;
+this.depth=options.depth||580;
+this.material=options.material||"18mm Plywood";
+this.shelves=options.shelves||1;
+this.doors=options.doors||2;
+this.drawers=options.drawers||0;
+this.toeKick=true;
+this.toeHeight=100;
+this.toeSetback=50;
+this.backStyle="Captured";
+this.doorStyle="Shaker";
+this.parts=[];
+}
+generateParts(){
+this.parts=[];
+let W=this.width,H=this.height,D=this.depth;
+this.parts.push({name:"Side",width:D,height:H,qty:2,material:this.material});
+this.parts.push({name:"Top",width:W-36,height:D,qty:1,material:this.material});
+this.parts.push({name:"Bottom",width:W-36,height:D,qty:1,material:this.material});
+for(let i=0;i<this.shelves;i++){
+this.parts.push({name:"Shelf",width:W-36,height:D-20,qty:1,material:this.material});
+}
+if(this.toeKick){
+this.parts.push({name:"Toe Front",width:W,height:this.toeHeight,qty:1,material:this.material});
+}
+if(this.backStyle==="Captured"){
+this.parts.push({name:"Back",width:W-36,height:H-36,qty:1,material:"6mm MDF"});
+}
+if(this.backStyle==="Full"){
+this.parts.push({name:"Back",width:W,height:H,qty:1,material:"6mm MDF"});
+}
+if(this.doors>0){
+let dw=W/this.doors;
+for(let i=0;i<this.doors;i++){
+this.parts.push({name:"Door",width:dw-4,height:H-4,qty:1,material:this.material});
+}
+}
+for(let i=0;i<this.drawers;i++){
+this.parts.push({name:"Drawer Side",width:D-50,height:150,qty:2,material:"12mm Plywood"});
+this.parts.push({name:"Drawer Front",width:W-100,height:150,qty:1,material:"12mm Plywood"});
+this.parts.push({name:"Drawer Back",width:W-100,height:150,qty:1,material:"12mm Plywood"});
+this.parts.push({name:"Drawer Bottom",width:W-100,height:D-50,qty:1,material:"6mm MDF"});
+}
+return this.parts;
+}
+edgeBanding(){
+let total=0;
+this.parts.forEach(p=>{
+if(p.name==="Shelf"||p.name==="Door"||p.name==="Drawer Front"){
+total+=(p.width*2)+(p.height*2);
+}
+});
+return(total/1000).toFixed(2);
+}
+hardware(){
+return{hinges:this.doors*2,slides:this.drawers,pins:this.shelves*4,feet:4};
+}
+summary(){
+return{parts:this.parts.length,edgeBanding:this.edgeBanding(),hardware:this.hardware()};
+}
+}
+function presets(type){
+switch(type){
+case"Base Cabinet":return{width:900,height:720,depth:580};
+case"Wall Cabinet":return{width:900,height:720,depth:320};
+case"Pantry":return{width:600,height:2100,depth:580};
+case"Vanity":return{width:900,height:870,depth:500};
+default:return{width:900,height:720,depth:580};
+}
+}
+
+// ===== project.js =====
+class Project {
+constructor(){
+this.name="Flawlessjess Project";
+this.units="mm";
+this.cabinets=[];
+this.customParts=[];
+this.materials=[
+{id:1,name:"18mm Plywood",thickness:18,width:2400,height:1200,cost:120},
+{id:2,name:"6mm MDF",thickness:6,width:2400,height:1200,cost:40}
+];
+this.offcuts=[];
+}
+addCabinet(cabinet){this.cabinets.push(cabinet)}
+removeCabinet(index){this.cabinets.splice(index,1)}
+duplicateCabinet(index){
+let c=structuredClone(this.cabinets[index]);
+this.cabinets.push(c);
+}
+clear(){this.cabinets=[];this.customParts=[];this.offcuts=[]}
+totalCabinets(){return this.cabinets.length}
+totalSheets(){return this.materials.length}
+addCustomPart(part){this.customParts.push(part)}
+removeCustomPart(index){this.customParts.splice(index,1)}
+getAllParts(){
+let parts=[];
+this.cabinets.forEach(c=>{parts.push(...c.parts)});
+this.customParts.forEach(p=>{parts.push(p)});
+return parts;
+}
+addOffcut(w,h){this.offcuts.push({width:w,height:h})}
+materialByName(name){return this.materials.find(m=>m.name===name)}
+save(){return JSON.stringify(this,null,2)}
+load(data){
+let p=JSON.parse(data);
+this.name=p.name;this.units=p.units;this.cabinets=p.cabinets;
+this.customParts=p.customParts||[];
+this.materials=p.materials;this.offcuts=p.offcuts;
+}
+}
+function saveProject(project){
+let blob=new Blob([project.save()],{type:"application/json"});
+let link=document.createElement("a");
+link.href=URL.createObjectURL(blob);
+link.download="project.cabproj";
+link.click();
+}
+function loadProject(file,project,callback){
+let reader=new FileReader();
+reader.onload=function(){project.load(reader.result);callback()};
+reader.readAsText(file);
+}
+
+// ===== nesting.js =====
+class Sheet {
+constructor(material="18mm Plywood",sw,sh){
+this.material=material;
+this.width=sw||2400;this.height=sh||1200;
+this.parts=[];
+this.freeRects=[{x:0,y:0,w:this.width,h:this.height}];
+}
+}
+class NestingEngine {
+constructor(){this.sheets=[];this.sheetW=2400;this.sheetH=1200}
+setSheetSize(w,h){this.sheetW=w;this.sheetH=h}
+nest(parts){
+this.sheets=[];
+let sorted=[...parts].sort((a,b)=>(b.width*b.height)-(a.width*a.height));
+sorted.forEach(part=>{
+for(let i=0;i<part.qty;i++){
+this.placePart({name:part.name,width:part.width,height:part.height,material:part.material});
+}
+});
+return this.sheets;
+}
+placePart(part){
+for(let sheet of this.sheets){
+if(this.tryPlace(sheet,part)) return;
+}
+let sheet=new Sheet(part.material,this.sheetW,this.sheetH);
+this.sheets.push(sheet);
+this.tryPlace(sheet,part);
+}
+tryPlace(sheet,part){
+let best=null,bestScore=-Infinity;
+let pw=part.width,ph=part.height;
+for(let i=0;i<sheet.freeRects.length;i++){
+let r=sheet.freeRects[i];
+for(let rot=0;rot<2;rot++){
+let w=rot?ph:pw,h=rot?pw:ph;
+if(w>r.w||h>r.h) continue;
+let rx=r.x,ry=r.y,rw=r.w,rh=r.h;
+let scoreA=rw*rh-w*h;
+let rightW=rw-w,bottomH=rh-h;
+let spareW=rw*bottomH+rightW*h;
+let spareH=rightW*rh+w*bottomH;
+let score=Math.min(spareW,spareH)-Math.abs(rw-w)-Math.abs(rh-h);
+if(score>bestScore){bestScore=score;best={i,w,h,split:spareW>=spareH?'H':'V'}}
+}
+}
+if(!best) return false;
+let r=sheet.freeRects[best.i];
+let p={name:part.name,x:r.x,y:r.y,width:best.w,height:best.h,material:part.material};
+sheet.parts.push(p);
+sheet.freeRects.splice(best.i,1);
+if(best.split==='H'){
+if(r.w-best.w>0&&best.h>0) sheet.freeRects.push({x:r.x+best.w,y:r.y,w:r.w-best.w,h:best.h});
+if(r.w>0&&r.h-best.h>0) sheet.freeRects.push({x:r.x,y:r.y+best.h,w:r.w,h:r.h-best.h});
+}else{
+if(best.w>0&&r.h-best.h>0) sheet.freeRects.push({x:r.x,y:r.y+best.h,w:best.w,h:r.h-best.h});
+if(r.w-best.w>0&&r.h>0) sheet.freeRects.push({x:r.x+best.w,y:r.y,w:r.w-best.w,h:r.h});
+}
+sheet.freeRects=sheet.freeRects.filter(r=>r.w>8&&r.h>8);
+this.mergeRects(sheet);
+return true;
+}
+mergeRects(sheet){
+let merged;
+do{
+merged=false;
+let fr=sheet.freeRects;
+for(let i=0;i<fr.length&&!merged;i++){
+for(let j=i+1;j<fr.length&&!merged;j++){
+let a=fr[i],b=fr[j];
+if(a.y===b.y&&a.h===b.h&&((a.x+a.w===b.x)||(b.x+b.w===a.x))){
+fr[i]={x:Math.min(a.x,b.x),y:a.y,w:a.w+b.w,h:a.h};
+fr.splice(j,1);merged=true;
+}else if(a.x===b.x&&a.w===b.w&&((a.y+a.h===b.y)||(b.y+b.h===a.y))){
+fr[i]={x:a.x,y:Math.min(a.y,b.y),w:a.w,h:a.h+b.h};
+fr.splice(j,1);merged=true;
+}
+}
+}
+}while(merged);
+}
+materialSummary(){
+let totalArea=0,sheetArea=0;
+this.sheets.forEach(sheet=>{
+sheetArea+=sheet.width*sheet.height;
+sheet.parts.forEach(p=>{totalArea+=p.width*p.height});
+});
+return{used:(totalArea/1000000).toFixed(2),available:(sheetArea/1000000).toFixed(2),waste:sheetArea?((1-totalArea/sheetArea)*100).toFixed(1):"0.0"};
+}
+}
+function drawSheets(canvas,sheets){
+const ctx=canvas.getContext("2d");
+ctx.clearRect(0,0,canvas.width,canvas.height);
+if(!sheets.length)return;
+let maxW=0;sheets.forEach(s=>{if(s.width>maxW)maxW=s.width});
+let scale=Math.min(520/maxW,380/1200);
+let offsetY=15,gap=20;
+sheets.forEach((sheet,i)=>{
+let sw=sheet.width*scale,sh=sheet.height*scale,x=15,y=offsetY;
+ctx.strokeStyle="#333";
+ctx.strokeRect(x,y,sw,sh);
+ctx.fillStyle="rgba(0,0,0,0.04)";
+ctx.fillRect(x,y,sw,sh);
+ctx.fillStyle="#999";
+ctx.font="10px Arial";
+ctx.fillText("Sheet "+(i+1)+" ("+sheet.width+"x"+sheet.height+")",x+4,y+14);
+sheet.parts.forEach(p=>{
+let px=x+p.x*scale,py=y+p.y*scale,pw=p.width*scale,ph=p.height*scale;
+ctx.fillStyle="#ff6b9d";
+ctx.fillRect(px,py,pw,ph);
+ctx.strokeStyle="rgba(0,0,0,0.35)";
+ctx.lineWidth=1;
+ctx.strokeRect(px,py,pw,ph);
+ctx.fillStyle="#000";
+ctx.font="9px Arial";
+ctx.fillText(p.name+" "+p.width+"x"+p.height,px+3,py+12);
+ctx.fillText("("+(p.width*p.height/10000).toFixed(1)+"m\u00b2)",px+3,py+22);
+ctx.strokeStyle="black";ctx.lineWidth=1;
+});
+offsetY+=sh+gap;
+if(offsetY>canvas.height-30) offsetY=15;
+});
+}
+
+// ===== app.js =====
+const project=new Project();
+const nesting=new NestingEngine();
+const type=document.getElementById("cabinetType");
+const widthEl=document.getElementById("width");
+const heightEl=document.getElementById("height");
+const depthEl=document.getElementById("depth");
+const shelvesEl=document.getElementById("shelves");
+const doorsEl=document.getElementById("doors");
+const drawersEl=document.getElementById("drawers");
+const addBtn=document.getElementById("addCabinet");
+const cabinetList=document.getElementById("cabinetList");
+const materialSummary=document.getElementById("materialSummary");
+const canvas=document.getElementById("sheetCanvas");
+canvas.width=1200;canvas.height=900;
+const saveBtn=document.getElementById("saveBtn");
+const loadBtn=document.getElementById("loadBtn");
+const loadFile=document.getElementById("loadFile");
+const undoBtn=document.getElementById("undoBtn");
+const exportBtn=document.getElementById("exportBtn");
+const sheetW=document.getElementById("sheetW");
+const sheetH=document.getElementById("sheetH");
+const customName=document.getElementById("customName");
+const customW=document.getElementById("customW");
+const customH=document.getElementById("customH");
+const customQty=document.getElementById("customQty");
+const addCustomBtn=document.getElementById("addCustomBtn");
+
+let undoStack=[];
+
+function pushUndo(){
+undoStack.push(JSON.stringify({cabinets:project.cabinets,customParts:project.customParts}));
+if(undoStack.length>50) undoStack.shift();
+}
+
+type.addEventListener("change",()=>{
+let p=presets(type.value);
+widthEl.value=p.width;heightEl.value=p.height;depthEl.value=p.depth;
+});
+
+addBtn.addEventListener("click",()=>{
+pushUndo();
+let cabinet=new Cabinet({
+type:type.value,width:Number(widthEl.value),height:Number(heightEl.value),
+depth:Number(depthEl.value),shelves:Number(shelvesEl.value),
+doors:Number(doorsEl.value),drawers:Number(drawersEl.value)
+});
+cabinet.generateParts();
+project.addCabinet(cabinet);
+refresh();
+});
+
+addCustomBtn.addEventListener("click",()=>{
+pushUndo();
+let name=customName.value||"Custom";
+let w=Number(customW.value)||100;
+let h=Number(customH.value)||100;
+let qty=Number(customQty.value)||1;
+project.addCustomPart({name:name,width:w,height:h,qty:qty,material:"18mm Plywood"});
+refresh();
+});
+
+undoBtn.addEventListener("click",()=>{
+if(!undoStack.length)return;
+let prev=JSON.parse(undoStack.pop());
+project.cabinets=prev.cabinets;
+project.customParts=prev.customParts||[];
+refresh();
+});
+
+exportBtn.addEventListener("click",()=>{
+let parts=project.getAllParts();
+let rows=[["Part","Width (mm)","Height (mm)","Qty","Area (m\u00b2)","Material"]];
+parts.forEach(p=>{rows.push([p.name,p.width,p.height,p.qty,((p.width*p.height*p.qty)/1000000).toFixed(4),p.material||"18mm Plywood"])});
+let csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
+let blob=new Blob([csv],{type:"text/csv"});
+let link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="cutlist.csv";link.click();
+});
+
+function refresh(){
+cabinetList.innerHTML="";
+project.cabinets.forEach((c,i)=>{
+let div=document.createElement("div");
+div.className="cabinetItem";
+let hw=c.hardware();
+div.innerHTML=`<b>${c.type}</b> ${c.width}x${c.height}x${c.depth}<br>Parts: ${c.parts.length} | Tape: ${c.edgeBanding()}m | Hinges: ${hw.hinges} Slides: ${hw.slides}<button class="del-btn" data-i="${i}">&times;</button>`;
+cabinetList.appendChild(div);
+});
+let customParts=project.customParts||[];
+customParts.forEach((p,i)=>{
+let div=document.createElement("div");div.className="cabinetItem";
+div.innerHTML=`<b>${p.name}</b> ${p.width}x${p.height} x${p.qty}<br>Custom Cut<button class="del-btn" data-c="${i}">&times;</button>`;
+cabinetList.appendChild(div);
+});
+cabinetList.querySelectorAll(".del-btn[data-i]").forEach(btn=>{
+btn.addEventListener("click",()=>{pushUndo();project.removeCabinet(Number(btn.dataset.i));refresh()});
+});
+cabinetList.querySelectorAll(".del-btn[data-c]").forEach(btn=>{
+btn.addEventListener("click",()=>{project.removeCustomPart(Number(btn.dataset.c));refresh()});
+});
+let sW=Number(sheetW.value)||2400;
+let sH=Number(sheetH.value)||1200;
+nesting.setSheetSize(sW,sH);
+let parts=project.getAllParts();
+let sheets=nesting.nest(parts);
+drawSheets(canvas,sheets);
+let sheets18=sheets.filter(s=>s.material==="18mm Plywood");
+let sheets6=sheets.filter(s=>s.material==="6mm MDF");
+let m=nesting.materialSummary();
+materialSummary.innerHTML="<b>18mm Ply</b> ("+sW+"x"+sH+")<br>Sheets: "+sheets18.length+"<br><b>6mm MDF</b> ("+sW+"x"+sH+")<br>Sheets: "+sheets6.length+"<br><br><b>Total</b><br>Sheets: "+sheets.length+"<br>Used: "+m.used+"m\u00b2<br>Waste: "+m.waste+"%";
+}
+
+saveBtn.addEventListener("click",()=>{saveProject(project)});
+loadBtn.addEventListener("click",()=>{loadFile.click()});
+loadFile.addEventListener("change",e=>{let file=e.target.files[0];loadProject(file,project,()=>{refresh()})});
+sheetW.addEventListener("change",refresh);
+sheetH.addEventListener("change",refresh);
+
+refresh();
+</script>
+</body>
+</html>

@@ -65,22 +65,19 @@ input[type=number].qty::-webkit-outer-spin-button,input[type=number].qty::-webki
 <div class="header-btns">
 <button id="undoBtn" class="btn-outline" style="color:#f5a623;border-color:#f5a623">Undo</button>
 <button id="exportBtn" class="btn-outline" style="color:#ff6b9d;border-color:#ff6b9d">Export XLS</button>
+<button id="doneBtn" class="btn-success" style="color:white">Done</button>
 <button id="saveBtn">Save</button>
 <button id="loadBtn">Load</button>
 <input type="file" id="loadFile" hidden>
-<button id="localPricesBtn" class="btn-outline" style="color:#4ea1ff;border-color:#4ea1ff">Local Prices</button>
-<input type="file" id="localPricesFile" accept=".csv" hidden>
 </div>
 </header>
 <div class="main">
 <div id="sidebarDrag"></div>
 <aside id="sidebar">
 <div class="section">
-<h2>Sheet Inventory
-<button id="fetchPricesBtn" class="btn-outline" style="float:right;width:auto;padding:2px 8px;margin:0;font-size:10px">Fetch Prices</button>
-</h2>
+<h2>Sheets</h2>
 <table id="invTable">
-<thead><tr><th>Ply</th><th>W</th><th>H</th><th>Qty</th><th>Cost</th><th></th></tr></thead>
+<thead><tr><th>Ply</th><th>W</th><th>H</th><th></th></tr></thead>
 <tbody id="invBody"></tbody>
 </table>
 <div class="form-row">
@@ -89,13 +86,15 @@ input[type=number].qty::-webkit-outer-spin-button,input[type=number].qty::-webki
 </select>
 <input id="invW" type="number" value="2400" style="width:48px;padding:3px;font-size:11px">
 <input id="invH" type="number" value="1200" style="width:48px;padding:3px;font-size:11px">
-<input id="invQty" class="qty" type="number" value="0" min="0" style="width:30px;padding:3px;font-size:11px">
-<input id="invCost" type="number" value="70" style="width:52px;padding:3px;font-size:11px">
 <button id="addInvBtn" class="btn-success" style="width:auto;padding:3px 8px;margin:0">+</button>
 </div>
 </div>
 <div class="section">
-<h2>Offcuts</h2>
+<h2>Inventory Offcuts
+<button id="exportOffcutsBtn" class="btn-outline" style="float:right;width:auto;padding:2px 8px;margin:0;font-size:10px">Export</button>
+<button id="importOffcutsBtn" class="btn-outline" style="float:right;width:auto;padding:2px 8px;margin:0 4px 0 0;font-size:10px">Import</button>
+</h2>
+<input type="file" id="offcutsFile" accept=".csv" hidden>
 <div id="offcutList" style="max-height:70px;overflow-y:auto;font-size:12px"></div>
 <div class="form-row">
 <select id="offMat" style="flex:1;padding:3px;font-size:11px">
@@ -105,6 +104,10 @@ input[type=number].qty::-webkit-outer-spin-button,input[type=number].qty::-webki
 <input id="offH" type="number" value="400" placeholder="L" style="width:50px;padding:3px;font-size:11px">
 <button id="addOffBtn" class="btn-success" style="width:auto;padding:3px 8px;margin:0">+</button>
 </div>
+</div>
+<div class="section">
+<h2>After-Cutting Offcuts</h2>
+<div id="afterOffcutList" style="max-height:70px;overflow-y:auto;font-size:12px"></div>
 </div>
 <div class="section">
 <h2>Cabinet Wizard</h2>
@@ -202,7 +205,7 @@ default:return{width:900,height:720,depth:580};
 class Project {
 constructor(){
 this.name="Flawlessjess Project";this.units="mm";
-this.cabinets=[];this.customParts=[];this.sheetInv=[];this.offcuts=[];this.nextId=100;
+this.cabinets=[];this.customParts=[];this.sheetInv=[];this.invOffcuts=[];this.offcuts=[];this.nextId=100;
 }
 addCabinet(c){if(!(c instanceof Cabinet))c=Object.assign(new Cabinet(),c);this.cabinets.push(c)}
 removeCabinet(i){this.cabinets.splice(i,1)}
@@ -213,7 +216,7 @@ let parts=[];this.cabinets.forEach(c=>{parts.push(...c.parts)});this.customParts
 }
 getHardware(){let h={hinges:0,slides:0,pins:0,feet:0};this.cabinets.forEach(c=>{let d=c.hardware();h.hinges+=d.hinges;h.slides+=d.slides;h.pins+=d.pins;h.feet+=d.feet});return h;}
 save(){return JSON.stringify(this,null,2)}
-load(data){let p=JSON.parse(data);Object.assign(this,p);this.cabinets=(this.cabinets||[]).map(c=>Object.assign(new Cabinet(),c));this.customParts=this.customParts||[];this.offcuts=this.offcuts||[];this.sheetInv=this.sheetInv||[]}
+load(data){let p=JSON.parse(data);Object.assign(this,p);this.cabinets=(this.cabinets||[]).map(c=>Object.assign(new Cabinet(),c));this.customParts=this.customParts||[];this.invOffcuts=this.invOffcuts||[];this.offcuts=this.offcuts||[];this.sheetInv=this.sheetInv||[]}
 }
 function saveProject(p){
 localStorage.setItem("flawlessjess_data",p.save());
@@ -227,8 +230,11 @@ constructor(material,w,h){this.material=material;this.width=w;this.height=h;this
 }
 class NestingEngine {
 constructor(){this.sheets=[];this.sheetUseCount={}}
-setSheetInv(inv,offcuts){
-this.sheetInv=inv;this.offcuts=offcuts||[];this.sheetUseCount={};inv.forEach(s=>this.sheetUseCount[s.id]=0);
+setSheetInv(inv,invOffcuts,offcuts){
+this.sheetInv=[];this.sheetUseCount={};
+(invOffcuts||[]).forEach((o,i)=>{let id="inv_off_"+i;this.sheetInv.push({id,name:o.material,w:o.w,h:o.h,qty:1});this.sheetUseCount[id]=0});
+(offcuts||[]).forEach((o,i)=>{let id="off_"+i;this.sheetInv.push({id,name:o.material,w:o.w,h:o.h,qty:1});this.sheetUseCount[id]=0});
+inv.forEach(s=>{this.sheetInv.push(s);this.sheetUseCount[s.id]=0});
 }
 nest(parts){
 this.sheets=[];
@@ -338,14 +344,14 @@ const addBtn=document.getElementById("addCabinet"),cabinetList=document.getEleme
 const canvasWrap=document.getElementById("canvasWrap");
 const canvas=document.getElementById("sheetCanvas");canvas.width=1200;
 const saveBtn=document.getElementById("saveBtn"),loadBtn=document.getElementById("loadBtn"),loadFile=document.getElementById("loadFile");
-const undoBtn=document.getElementById("undoBtn"),exportBtn=document.getElementById("exportBtn");
-const fetchPricesBtn=document.getElementById("fetchPricesBtn");
-const localPricesBtn=document.getElementById("localPricesBtn"),localPricesFile=document.getElementById("localPricesFile");
+const undoBtn=document.getElementById("undoBtn"),exportBtn=document.getElementById("exportBtn"),doneBtn=document.getElementById("doneBtn");
 const customName=document.getElementById("customName"),customW=document.getElementById("customW"),customH=document.getElementById("customH"),customQty=document.getElementById("customQty");
 const customMat=document.getElementById("customMat"),addCustomBtn=document.getElementById("addCustomBtn");
 const invBody=document.getElementById("invBody"),addInvBtn=document.getElementById("addInvBtn");
-const invMat=document.getElementById("invMat"),invW=document.getElementById("invW"),invH=document.getElementById("invH"),invQty=document.getElementById("invQty"),invCost=document.getElementById("invCost");
+const invMat=document.getElementById("invMat"),invW=document.getElementById("invW"),invH=document.getElementById("invH");
 const offcutList=document.getElementById("offcutList"),addOffBtn=document.getElementById("addOffBtn");
+const afterOffcutList=document.getElementById("afterOffcutList");
+const exportOffcutsBtn=document.getElementById("exportOffcutsBtn"),importOffcutsBtn=document.getElementById("importOffcutsBtn"),offcutsFile=document.getElementById("offcutsFile");
 const offMat=document.getElementById("offMat"),offW=document.getElementById("offW"),offH=document.getElementById("offH");
 const costSummary=document.getElementById("costSummary");
 let undoStack=[];
@@ -356,7 +362,7 @@ if(savedW)sidebar.style.width=savedW+"px";
 posDrag();
 
 function pushUndo(){
-undoStack.push(JSON.stringify({cabinets:project.cabinets,customParts:project.customParts,sheetInv:project.sheetInv,offcuts:project.offcuts}));
+undoStack.push(JSON.stringify({cabinets:project.cabinets,customParts:project.customParts,sheetInv:project.sheetInv,invOffcuts:project.invOffcuts,offcuts:project.offcuts}));
 if(undoStack.length>50)undoStack.shift();
 }
 
@@ -375,7 +381,7 @@ refresh();autoSave();
 
 undoBtn.addEventListener("click",()=>{
 if(!undoStack.length)return;let prev=JSON.parse(undoStack.pop());
-project.cabinets=(prev.cabinets||[]).map(c=>Object.assign(new Cabinet(),c));project.customParts=prev.customParts||[];project.sheetInv=prev.sheetInv||[];project.offcuts=prev.offcuts||[];refresh();autoSave();
+project.cabinets=(prev.cabinets||[]).map(c=>Object.assign(new Cabinet(),c));project.customParts=prev.customParts||[];project.sheetInv=prev.sheetInv||[];project.invOffcuts=prev.invOffcuts||[];project.offcuts=prev.offcuts||[];refresh();autoSave();
 });
 
 function autoSave(){localStorage.setItem("flawlessjess_data",project.save())}
@@ -396,41 +402,14 @@ let b=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});let a=document.cr
 
 function sheetsUsedFor(mat){return nesting.sheets?nesting.sheets.filter(s=>s.material===mat).length:0}
 
-fetchPricesBtn.addEventListener("click",async()=>{
-if(!confirm("Fetch current prices from Blacktown Building Supplies?"))return;
-fetchPricesBtn.textContent="Fetching...";fetchPricesBtn.disabled=true;
-let urls={"25mm Plywood":"https://blacktownbuildingsupplies.com.au/product/plywood-structural-2400-x-1200-x-25mm-sheet/","19mm Plywood":"https://blacktownbuildingsupplies.com.au/product/plywood-structural-2400-x-1200-x-19mm-sheet/","15mm Plywood":"https://blacktownbuildingsupplies.com.au/product/plywood-structural-2400-x-1200-x-15mm-sheet/"};
-let fetched=0;
-for(let s of project.sheetInv){
-let url=urls[s.name];if(!url)continue;
-try{
-let r=await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url));
-let data=await r.json();let m=data.contents.match(/<meta\s+property="product:price:amount"\s+content="([\d.]+)"/);
-if(m){s.cost=parseFloat(m[1]);fetched++}
-}catch(e){}
-await new Promise(r=>setTimeout(r,1000));
-}
-fetchPricesBtn.textContent="Fetch Prices";fetchPricesBtn.disabled=false;
-alert("Updated "+fetched+" prices from Blacktown Building Supplies.");
-});
-
-localPricesBtn.addEventListener("click",()=>{
-let rows=[["Name","Width","Height","Qty","Cost"]];project.sheetInv.forEach(s=>rows.push([s.name,s.w,s.h,s.qty,s.cost]));
-let csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
-let b=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="Flawlessjess_Local_Prices.csv";a.click();
-});
-localPricesFile.addEventListener("change",e=>{
-let file=e.target.files[0];if(!file)return;
-let r=new FileReader();
-r.onload=function(){
-let lines=r.result.split("\r\n").filter(l=>l.trim());
-for(let i=1;i<lines.length;i++){
-let p=lines[i].split(",").map(v=>v.replace(/^"|"$/g,"").replace(/""/g,'"'));
-if(p.length>=5){let idx=project.sheetInv.findIndex(s=>s.name===p[0]);if(idx>=0)project.sheetInv[idx].cost=parseFloat(p[4])||project.sheetInv[idx].cost}
-}
-autoSave();refresh();alert("Prices imported from spreadsheet.");
-};
-r.readAsText(file);localPricesFile.value="";
+doneBtn.addEventListener("click",()=>{
+pushUndo();
+// Convert all offcuts to sheet inventory
+let allOffcuts=[...project.invOffcuts,...project.offcuts];
+allOffcuts.forEach(o=>{project.sheetInv.push({id:"s"+project.nextId++,name:o.material,w:o.w,h:o.h,cost:0})});
+project.invOffcuts=[];project.offcuts=[];
+project.cabinets=[];project.customParts=[];
+autoSave();refresh();
 });
 
 // Sheet Inventory
@@ -441,8 +420,6 @@ let tr=document.createElement("tr");
 tr.innerHTML=`<td><input value="${s.name}" data-inv-field="${i}-name" size="${Math.max(8,s.name.length+1)}"></td>
 <td><input type="number" value="${s.w}" data-inv-field="${i}-w" size="${String(s.w).length+1}"></td>
 <td><input type="number" value="${s.h}" data-inv-field="${i}-h" size="${String(s.h).length+1}"></td>
-<td><input class="qty" type="number" value="${s.qty}" data-inv-field="${i}-qty" size="${String(Math.max(1,s.qty)).length+2}" style="text-align:center;min-width:28px"></td>
-<td><input type="number" value="${s.cost}" data-inv-field="${i}-cost" step="0.5" size="${String(Math.max(4,s.cost)).length+2}" style="text-align:right"></td>
 <td><button class="btn-danger" style="width:auto;padding:1px 5px;margin:0;font-size:10px" data-inv-del="${i}">x</button></td>`;
 invBody.appendChild(tr);
 });
@@ -450,7 +427,7 @@ invBody.querySelectorAll("[data-inv-field]").forEach(inp=>{
 let parts=inp.dataset.invField.split("-");let idx=parseInt(parts[0]),field=parts[1];
 inp.addEventListener("change",()=>{
 let v=field==="name"?inp.value:Number(inp.value);
-if(field==="cost"&&v<0)v=0;if((field==="w"||field==="h")&&v<1)v=1;
+if((field==="w"||field==="h")&&v<1)v=1;
 project.sheetInv[idx][field]=v;autoSave();refresh();
 });
 });
@@ -460,30 +437,61 @@ btn.addEventListener("click",()=>{pushUndo();project.sheetInv.splice(parseInt(bt
 }
 
 addInvBtn.addEventListener("click",()=>{
-pushUndo();project.sheetInv.push({id:"s"+project.nextId++,name:invMat.value,w:Number(invW.value)||2400,h:Number(invH.value)||1200,qty:Number(invQty.value)||1,cost:Number(invCost.value)||0});renderInv();autoSave();refresh();
+pushUndo();project.sheetInv.push({id:"s"+project.nextId++,name:invMat.value,w:Number(invW.value)||2400,h:Number(invH.value)||1200,cost:0});renderInv();autoSave();refresh();
 });
 
-// Offcuts
-function renderOffcuts(){
-offcutList.innerHTML="";if(!project.offcuts.length){offcutList.innerHTML='<span style="color:#555;font-size:11px">No offcuts added</span>';return}
-project.offcuts.forEach((o,i)=>{
+// Offcuts - Inventory (user-managed) and After-Cutting (auto-generated)
+function renderInvOffcuts(){
+offcutList.innerHTML="";if(!project.invOffcuts.length){offcutList.innerHTML='<span style="color:#555;font-size:11px">No inventory offcuts</span>';return}
+project.invOffcuts.forEach((o,i)=>{
 let d=document.createElement("div");d.style.cssText="padding:2px 0;display:flex;justify-content:space-between;align-items:center";
-d.innerHTML=`<span style="font-size:11px">${o.name||o.material} ${o.w}x${o.h}</span><button class="btn-danger" style="width:auto;padding:1px 5px;margin:0;font-size:10px" data-off-del="${i}">x</button>`;
+d.innerHTML=`<span style="font-size:11px">${o.name||o.material} ${o.w}x${o.h}</span><button class="btn-danger" style="width:auto;padding:1px 5px;margin:0;font-size:10px" data-inv-off-del="${i}">x</button>`;
 offcutList.appendChild(d);
 });
-offcutList.querySelectorAll("[data-off-del]").forEach(btn=>{
-btn.addEventListener("click",()=>{pushUndo();project.offcuts.splice(parseInt(btn.dataset.offDel),1);autoSave();refresh()});
+offcutList.querySelectorAll("[data-inv-off-del]").forEach(btn=>{
+btn.addEventListener("click",()=>{pushUndo();project.invOffcuts.splice(parseInt(btn.dataset.invOffDel),1);autoSave();refresh()});
+});
+}
+
+function renderAfterOffcuts(){
+afterOffcutList.innerHTML="";if(!project.offcuts.length){afterOffcutList.innerHTML='<span style="color:#555;font-size:11px">No after-cutting offcuts yet</span>';return}
+project.offcuts.forEach((o,i)=>{
+let d=document.createElement("div");d.style.cssText="padding:2px 0;display:flex;justify-content:space-between;align-items:center";
+d.innerHTML=`<span style="font-size:11px">${o.name||o.material} ${o.w}x${o.h}</span>`;
+afterOffcutList.appendChild(d);
 });
 }
 
 addOffBtn.addEventListener("click",()=>{
-pushUndo();project.offcuts.push({material:offMat.value,name:offMat.value,w:Number(offW.value)||100,h:Number(offH.value)||100});renderOffcuts();autoSave();refresh();
+pushUndo();project.invOffcuts.push({material:offMat.value,name:offMat.value,w:Number(offW.value)||100,h:Number(offH.value)||100});renderInvOffcuts();autoSave();refresh();
+});
+
+exportOffcutsBtn.addEventListener("click",()=>{
+let rows=[["Material","Width","Length"]];project.invOffcuts.forEach(o=>rows.push([o.material,o.w,o.h]));
+let csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\r\n");
+let b=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="Flawlessjess_InvOffcuts.csv";a.click();
+});
+
+importOffcutsBtn.addEventListener("click",()=>{offcutsFile.click()});
+offcutsFile.addEventListener("change",e=>{
+let file=e.target.files[0];if(!file)return;
+let r=new FileReader();
+r.onload=function(){
+let lines=r.result.split("\r\n").filter(l=>l.trim());
+let loaded=[];
+for(let i=1;i<lines.length;i++){
+let p=lines[i].split(",").map(v=>v.replace(/^"|"$/g,"").replace(/""/g,'"'));
+if(p.length>=3)loaded.push({material:p[0],name:p[0],w:parseInt(p[1])||100,h:parseInt(p[2])||100});
+}
+if(loaded.length){pushUndo();project.invOffcuts=loaded;renderInvOffcuts();autoSave();refresh();alert("Loaded "+loaded.length+" inventory offcuts.")}
+};
+r.readAsText(file);offcutsFile.value="";
 });
 
 function refresh(){
 renderInv();
 // Auto-add sheets for materials used by parts but missing from inventory
-project.getAllParts().forEach(p=>{let m=p.material||"19mm Plywood";if(!project.sheetInv.some(s=>s.name===m)){project.sheetInv.push({id:"s"+project.nextId++,name:m,w:2400,h:1200,qty:1,cost:m.includes("25")?118.50:m.includes("19")?91.00:m.includes("17")?78.50:70.10})}});
+project.getAllParts().forEach(p=>{let m=p.material||"19mm Plywood";if(!project.sheetInv.some(s=>s.name===m)){project.sheetInv.push({id:"s"+project.nextId++,name:m,w:2400,h:1200,cost:0})}});
 if(project.sheetInv.length)renderInv();
 cabinetList.innerHTML="";
 project.cabinets.forEach((c,i)=>{
@@ -531,22 +539,29 @@ let q=prompt("Qty:",p.qty);if(q===null)return;p.qty=Number(q)||p.qty;
 autoSave();refresh();
 });
 });
-nesting.setSheetInv(project.sheetInv,project.offcuts);
+nesting.setSheetInv(project.sheetInv,project.invOffcuts,project.offcuts);
 let parts=project.getAllParts();let sheets=nesting.nest(parts);
 drawSheets(canvas,sheets);
-// Auto-generate offcuts from nesting free rects
-let newOffcuts=[];
-nesting.sheets.forEach(s=>{s.freeRects.forEach(r=>{if(r.w>=100&&r.h>=100)newOffcuts.push({material:s.material,name:s.material+" Offcut",w:Math.round(r.w),h:Math.round(r.h)})})});
-project.offcuts=newOffcuts;renderOffcuts();
+// Auto-generate after-cutting offcuts from nesting free rects
+let newAfter=[];
+nesting.sheets.forEach(s=>{s.freeRects.forEach(r=>{if(r.w>=100&&r.h>=100)newAfter.push({material:s.material,name:s.material+" Offcut",w:Math.round(r.w),h:Math.round(r.h)})})});
+project.offcuts=newAfter;renderInvOffcuts();renderAfterOffcuts();
 let m=nesting.materialSummary();
-// Cost estimator
-let totalCost=0;let costRows=[];
-project.sheetInv.forEach(s=>{let used=sheets.filter(sh=>sh.material===s.name).length;let cost=used*s.cost;totalCost+=cost;if(used)costRows.push({label:s.name,val:used+" x $"+s.cost.toFixed(2)+" = $"+cost.toFixed(2)})});
+// Cost estimator with editable used-sheet rows
+let usedMats={};nesting.sheets.forEach(sh=>{if(!usedMats[sh.material])usedMats[sh.material]=0;usedMats[sh.material]++});
+let costHTML="";let totalCost=0;let matKeys=Object.keys(usedMats);
+matKeys.forEach(mat=>{
+let count=usedMats[mat];let invIdx=project.sheetInv.findIndex(s=>s.name===mat);
+if(invIdx<0)return;let inv=project.sheetInv[invIdx];let cst=inv.cost||0;let sub=count*cst;totalCost+=sub;
+costHTML+='<div class="cost-row" style="flex-wrap:wrap;gap:4px"><span style="min-width:70px">'+mat+" x"+count+'</span><span style="display:flex;gap:4px;align-items:center">W<input type="number" value="'+inv.w+'" data-cw="'+invIdx+'" style="width:45px;padding:2px;font-size:11px">H<input type="number" value="'+inv.h+'" data-ch="'+invIdx+'" style="width:45px;padding:2px;font-size:11px">$<input type="number" value="'+cst+'" data-cc="'+invIdx+'" step="0.5" style="width:55px;padding:2px;font-size:11px"> = $'+sub.toFixed(2)+"</span></div>";
+});
 let hw=project.getHardware();let hwCost=hw.hinges*3.5+hw.slides*12+hw.pins*0.2;totalCost+=hwCost;
-costSummary.innerHTML=(costRows.length?'<div style="font-size:12px;font-weight:bold;color:#ff6b9d;margin-bottom:4px">Sheets Used</div>':'')+
-costRows.map(r=>'<div class="cost-row"><span>'+r.label+'</span><span>'+r.val+'</span></div>').join("")+
+costSummary.innerHTML=(matKeys.length?'<div style="font-size:12px;font-weight:bold;color:#ff6b9d;margin-bottom:4px">Sheets Used</div>':'')+costHTML+
 '<div class="cost-row" style="margin-top:4px"><span>Hardware (hinges $3.50, slides $12, pins $0.20)</span><span>$'+hwCost.toFixed(2)+'</span></div>'+
 '<div class="cost-total">Total: $'+totalCost.toFixed(2)+'</div>';
+costSummary.querySelectorAll("[data-cw]").forEach(inp=>{inp.addEventListener("change",()=>{let i=parseInt(inp.dataset.cw);project.sheetInv[i].w=Math.max(1,Number(inp.value)||project.sheetInv[i].w);autoSave();refresh()})});
+costSummary.querySelectorAll("[data-ch]").forEach(inp=>{inp.addEventListener("change",()=>{let i=parseInt(inp.dataset.ch);project.sheetInv[i].h=Math.max(1,Number(inp.value)||project.sheetInv[i].h);autoSave();refresh()})});
+costSummary.querySelectorAll("[data-cc]").forEach(inp=>{inp.addEventListener("change",()=>{let i=parseInt(inp.dataset.cc);project.sheetInv[i].cost=Math.max(0,Number(inp.value)||0);autoSave();refresh()})});
 }
 
 saveBtn.addEventListener("click",()=>{saveProject(project)});
